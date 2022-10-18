@@ -17,7 +17,8 @@ all_volumes as (
     region,
     display_name,
     size_in_gbs,
-    tags
+    tags,
+    lifecycle_state
   from
     oci_core_volume
   union
@@ -27,7 +28,8 @@ all_volumes as (
     region,
     display_name,
     size_in_gbs,
-    tags
+    tags,
+    lifecycle_state
   from
     oci_core_boot_volume
 )
@@ -36,12 +38,10 @@ select
   count(*) as Volumes,
   sum(a.size_in_gbs::int) as SizeGB,
   a.tags['CreatedBy']
---  a.id as resource,
---  coalesce(c.name, 'root') as compartment
 from
   all_volumes as a
   left join vols_with_instances as v on v.volume_id = a.id
 where
-  v.volume_id is null
+  v.volume_id is null and a.lifecycle_state != 'TERMINATED'
 group by a.tags['CreatedBy']
 order by SizeGB	desc

@@ -1,46 +1,69 @@
 with vols_with_instances as (
-  select
-    v.volume_id as volume_id
+  SELECT
+    v.volume_id as volume_id,
+    v.instance_id as instance_id
   from
     oci_core_volume_attachment as v
   union
   select
-    b.boot_volume_id as volume_id
+    b.boot_volume_id as volume_id,
+    b.instance_id as instance_id
   from
     oci_core_boot_volume_attachment as b
 ),
 -- Listing all volumes of type boot and block volumes
 all_volumes as (
   select
+    'Block Volume' as volume_type,
+    lifecycle_state,
     id,
     compartment_id,
-    region,
+    availability_domain,
     display_name,
     size_in_gbs,
-    tags
+    vpus_per_gb,
+    is_auto_tune_enabled,
+    tags,
+    _ctx as Tenancy
   from
     oci_core_volume
   union
   select
+    'Boot Volume' as volume_type,
+    lifecycle_state,
     id,
     compartment_id,
-    region,
+    availability_domain,
     display_name,
     size_in_gbs,
-    tags
+    vpus_per_gb,
+    is_auto_tune_enabled,
+    tags,
+    _ctx as Tenancy
   from
     oci_core_boot_volume
 )
 -- Listing the volumes based on attachment
 select
-  count(*) as Volumes,
-  sum(a.size_in_gbs::int) as SizeGB,
-  coalesce(c.name, 'root') as compartment
+  a.display_name as Volume_name,
+  a.tags['CreatedBy'] as Owner,
+  a.size_in_gbs::int as SizeGB,
+  a.vpus_per_gb as VPUs,
+  a.is_auto_tune_enabled as AutoTune,
+  a.volume_type,
+  case
+    when v.volume_id is null then 'Not Attached'
+    else 'Attached'
+  end as status,
+  i.display_name as Attached_to,
+  a.id as resource,
+  coalesce(c.name, 'root') as compartment,
+  a.availability_domain,
+  Tenancy['connection_name']
 from
   all_volumes as a
   left join vols_with_instances as v on v.volume_id = a.id
   left join oci_identity_compartment as c on c.id = a.compartment_id
-where
-  v.volume_id is null
-group by compartment
-order by SizeGB desc
+  left join oci_core_instance as i on v.instance_id = i.id
+where a.lifecycle_state='AVAILABLE'
+order by SizeGB	desc

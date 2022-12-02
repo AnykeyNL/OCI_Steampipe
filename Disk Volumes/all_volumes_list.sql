@@ -1,4 +1,4 @@
-with vols_with_instances as (
+create view volumes as with vols_with_instances as (
   SELECT
     v.volume_id as volume_id,
     v.instance_id as instance_id
@@ -52,6 +52,7 @@ select
     when v.volume_id is null then 'Not Attached'
     else 'Attached'
   end as status,
+  v.instance_id as instance_id,
   i.display_name as Attached_to,
   a.id as resource,
   coalesce(c.name, 'root') as compartment,

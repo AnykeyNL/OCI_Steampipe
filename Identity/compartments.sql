@@ -1,5 +1,5 @@
 
-WITH RECURSIVE compartments AS (
+create view ctree as WITH RECURSIVE compartments AS (
       SELECT
         name,
         id,
